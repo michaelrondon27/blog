@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use Illuminate\Http\Request;
-use App\Http\Request\PostStoreRequest;
-use App\Http\Request\PostUpdateRequest;
+use App\Http\Requests\PostStoreRequest;
+use App\Http\Requests\PostUpdateRequest;
 use App\Http\Controllers\Controller;
 use App\Post;
 use App\Category;
 use App\Tag;
+use Illuminate\Support\Facades\Storage;
 
 class PostController extends Controller
 {
@@ -50,6 +51,13 @@ class PostController extends Controller
     public function store(PostStoreRequest $request)
     {
         $post = Post::create($request->all());
+        //IMAGE
+        if($request->file('file')){
+            $path = Storage::disk('public')->put('image', $request->file('file'));
+            $post->fill(['file' => asset($path)])->save();
+        }
+        //TAGS
+        $post->tags()->sync($request->get('tags'));
         return redirect()->route('posts.edit', $post->id)->with('info', 'Entrada creado con éxito');
     }
 
@@ -62,6 +70,7 @@ class PostController extends Controller
     public function show($id)
     {
         $post = Post::find($id);
+        $this->authorize('pass', $post);
         return view('admin.posts.show', compact('post'));
     }
 
@@ -73,9 +82,10 @@ class PostController extends Controller
      */
     public function edit($id)
     {
+        $post = Post::find($id);
+        $this->authorize('pass', $post);
         $categories = Category::orderBy('name', 'ASC')->pluck('name', 'id');
         $tags = Tag::orderBy('name', 'ASC')->get();
-        $post = Post::find($id);
         return view('admin.posts.edit', compact('post', 'categories', 'tags'));
     }
 
@@ -89,7 +99,15 @@ class PostController extends Controller
     public function update(PostUpdateRequest $request, $id)
     {
         $post = Post::find($id);
+        $this->authorize('pass', $post);
         $post->fill($request->all())->save();
+        //IMAGE
+        if($request->file('file')){
+            $path = Storage::disk('public')->put('image', $request->file('file'));
+            $post->fill(['file' => asset($path)])->sve();
+        }
+        //TAGS
+        $post->tags()->sync($request->get('tags'));
         return redirect()->route('posts.edit', $post->id)->with('info', 'Entrada actualizada con éxito');
     }
 
@@ -101,7 +119,9 @@ class PostController extends Controller
      */
     public function destroy($id)
     {
-        $post = Post::find($id)->delete();
+        $post = Post::find($id);
+        $this->authorize('pass', $post);
+        $post->delete();
         return back()->with('info', 'Eliminado correctamente');
     }
 }
